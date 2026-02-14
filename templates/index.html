@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Media Streaming Lab</title>
+    <style>
+        body { background:#0f0f0f; color:white; font-family:Arial; margin:0; }
+        h2 { text-align:center; padding:15px; }
+
+        .container { display:flex; }
+
+        .sidebar {
+            width:250px;
+            background:#1c1c1c;
+            padding:15px;
+        }
+
+        .sidebar h3 { margin-top:0; }
+
+        .sidebar form input {
+            width:100%;
+            padding:5px;
+            margin-bottom:5px;
+        }
+
+        .sidebar button {
+            width:100%;
+            padding:6px;
+            background:red;
+            color:white;
+            border:none;
+            cursor:pointer;
+            margin-bottom:10px;
+        }
+
+        .playlist-item {
+            background:#2a2a2a;
+            padding:6px;
+            margin-bottom:6px;
+            border-radius:5px;
+        }
+
+        .playlist-item a {
+            text-decoration:none;
+            color:white;
+        }
+
+        .playlist-item a:hover {
+            color:#00ffff;
+        }
+
+        .main {
+            flex:1;
+            padding:20px;
+        }
+
+        .search-box {
+            width:100%;
+            padding:8px;
+            margin-bottom:10px;
+            border-radius:5px;
+            border:none;
+        }
+
+        .suggestions {
+            background:#1c1c1c;
+            border-radius:5px;
+            margin-bottom:15px;
+            max-height:150px;
+            overflow-y:auto;
+        }
+
+        .suggestions div {
+            padding:6px;
+            cursor:pointer;
+            border-bottom:1px solid #333;
+        }
+
+        .suggestions div:hover {
+            background:#333;
+        }
+
+        .grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+            gap:20px;
+        }
+
+        .card {
+            background:#1c1c1c;
+            padding:10px;
+            border-radius:10px;
+        }
+
+        .video-container {
+            position:relative;
+            cursor:pointer;
+        }
+
+        .video-container img {
+            width:100%;
+            border-radius:10px;
+        }
+
+        .play-button {
+            position:absolute;
+            top:50%;
+            left:50%;
+            transform:translate(-50%,-50%);
+            font-size:40px;
+            background:rgba(0,0,0,0.6);
+            padding:10px 15px;
+            border-radius:50%;
+        }
+
+        video { width:100%; border-radius:10px; margin-top:10px; }
+
+        .delete-btn {
+            display:inline-block;
+            margin-top:5px;
+            color:#ff4d4d;
+            text-decoration:none;
+        }
+
+        .delete-btn:hover {
+            color:#ff0000;
+        }
+
+        .active-title {
+            margin-bottom:10px;
+            color:#00ffff;
+        }
+
+        .back-link {
+            display:inline-block;
+            margin-bottom:15px;
+            color:#00ffff;
+            text-decoration:none;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Media Streaming Lab</h2>
+
+<div class="container">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h3>Create Playlist</h3>
+        <form method="POST" action="/create_playlist">
+            <input type="text" name="name" placeholder="Playlist name" required>
+            <button type="submit">Create</button>
+        </form>
+
+        <h3>Playlists</h3>
+        {% for p in playlists %}
+        <div class="playlist-item">
+            <a href="/playlist/{{ p.id }}">
+                {{ p.name }} ({{ p.songs|length }})
+            </a>
+            <a href="/delete_playlist/{{ p.id }}"
+               onclick="return confirm('Delete this playlist?')"
+               style="color:red; float:right;">❌</a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+        {% if active_playlist %}
+            <h3 class="active-title">Playlist: {{ active_playlist.name }}</h3>
+            <a href="/" class="back-link">⬅ Back to All Videos</a>
+        {% endif %}
+
+        <!-- 🔥 SEARCH BAR -->
+        <input type="text" id="searchInput"
+               class="search-box"
+               placeholder="Search songs..."
+               onkeyup="searchSongs()">
+
+        <div id="suggestions" class="suggestions"></div>
+
+        {% if not active_playlist %}
+        <form method="POST">
+            <input type="text" name="url" placeholder="Paste Video Link" required>
+            <button type="submit">Convert</button>
+        </form>
+        {% endif %}
+
+        <div class="grid">
+            {% for video in videos %}
+            <div class="card" data-title="{{ video.title|lower }}" data-id="{{ video.id }}">
+
+                <div class="video-container" onclick="playVideo('{{ video.id }}')">
+                    <img id="thumb-{{ video.id }}" src="{{ video.thumbnail }}">
+                    <div id="play-{{ video.id }}" class="play-button">▶</div>
+                </div>
+
+                <video id="video-{{ video.id }}" controls style="display:none;">
+                    <source src="/video/{{ video.filename }}" type="video/mp4">
+                </video>
+
+                <h4>{{ video.title }}</h4>
+
+                <a href="/delete_video/{{ video.id }}"
+                   class="delete-btn"
+                   onclick="return confirm('Delete this video?')">
+                   🗑 Delete
+                </a>
+
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+function playVideo(id){
+    document.getElementById("thumb-"+id).style.display="none";
+    document.getElementById("play-"+id).style.display="none";
+    let v=document.getElementById("video-"+id);
+    v.style.display="block";
+    v.play();
+}
+
+function searchSongs(){
+    let input = document.getElementById("searchInput").value.toLowerCase();
+    let cards = document.querySelectorAll(".card");
+    let suggestionsBox = document.getElementById("suggestions");
+
+    suggestionsBox.innerHTML = "";
+
+    if(input === ""){
+        cards.forEach(card => card.style.display = "block");
+        return;
+    }
+
+    cards.forEach(card => {
+        let title = card.getAttribute("data-title");
+
+        if(title.startsWith(input)){
+            card.style.display = "block";
+
+            let suggestion = document.createElement("div");
+            suggestion.innerText = card.querySelector("h4").innerText;
+
+            suggestion.onclick = function(){
+                let id = card.getAttribute("data-id");
+                card.scrollIntoView({behavior:"smooth"});
+                playVideo(id);
+                suggestionsBox.innerHTML = "";
+            };
+
+            suggestionsBox.appendChild(suggestion);
+        } else {
+            card.style.display = "none";
+        }
+    });
+}
+</script>
+
+</body>
+</html>
