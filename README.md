@@ -42,7 +42,11 @@ Look for lines like:
 ### Optional env vars
 
 - `SECRET_KEY` – Required for flash messages. Set to a long random string in production.
-- `PORT` – Many hosts set this automatically (e.g. Render, Heroku).
+- `PORT` – Many hosts set this automatically (e.g. Render, Heroku, Railway).
+
+### Railway / reverse proxy
+
+The app uses **ProxyFix** so Flask trusts `X-Forwarded-*` headers. That keeps the session cookie working behind Railway’s HTTPS proxy (login and Convert no longer redirect to the login page).
 
 ### Note on free hosts
 

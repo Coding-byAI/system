@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, send_from_directory, redirect, flash, session
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 import yt_dlp
 import os
 import json
@@ -12,12 +13,20 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
+
+# Required when behind a reverse proxy (e.g. Railway): trust X-Forwarded-* headers
+# so Flask sees HTTPS and correct host; otherwise session cookie may not be set/sent
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 # Session ends when browser/app is closed (session cookie, no long-lived expiry)
 app.config["SESSION_PERMANENT"] = False
 app.config["PERMANENT_SESSION_LIFETIME"] = 0
 # Ensure session cookie is sent with same-site form POST (e.g. Convert button)
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_PATH"] = "/"
+# Secure cookie when behind HTTPS (Railway); off in debug so local HTTP works
+app.config["SESSION_COOKIE_SECURE"] = not app.debug
+app.config["SESSION_COOKIE_HTTPONLY"] = True
 
 # Paths relative to app folder so they work no matter where the app is run from
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
