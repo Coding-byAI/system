@@ -1,5 +1,5 @@
 // Media Streaming Lab - Offline-first PWA
-const CACHE_VERSION = 'media-streaming-lab-offline-v2';
+const CACHE_VERSION = 'media-streaming-lab-offline-v3';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const PAGES_CACHE = CACHE_VERSION + '-pages';
 const MEDIA_CACHE = CACHE_VERSION + '-media';
@@ -64,18 +64,22 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
-  // Video files: network-first, then cache (so played videos work offline)
+  // Video files: cache full file by URL (no Range header) so playback works offline
   if (path.startsWith('/video/')) {
+    var videoUrl = request.url;
+    var cacheKey = new Request(videoUrl, { headers: {} });
     event.respondWith(
-      fetch(request).then(function (response) {
-        if (response.ok) {
-          var clone = response.clone();
-          caches.open(MEDIA_CACHE).then(function (cache) { return cache.put(request, clone); });
-        }
-        return response;
-      }).catch(function () {
-        return caches.match(request).then(function (cached) {
-          return cached || new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+      caches.open(MEDIA_CACHE).then(function (cache) {
+        return cache.match(cacheKey).then(function (cached) {
+          if (cached) return cached;
+          return fetch(cacheKey).then(function (response) {
+            if (response.ok) cache.put(cacheKey, response.clone());
+            return response;
+          }).catch(function () {
+            return cache.match(cacheKey).then(function (c) {
+              return c || new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+            });
+          });
         });
       })
     );

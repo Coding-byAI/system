@@ -270,6 +270,20 @@
         }
         .delete-btn:hover { background: rgba(255,82,82,0.15); }
 
+        .video-actions { margin-top: 8px; }
+        .btn-loop {
+            padding: 8px 12px;
+            min-height: 36px;
+            border: none;
+            border-radius: 10px;
+            background: #2a2a2a;
+            color: #aaa;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .btn-loop:hover { background: #333; color: #fff; }
+        .btn-loop.active { background: rgba(0,229,255,0.25); color: #00e5ff; }
+
         .active-title { margin-bottom: 12px; color: #00e5ff; font-size: 1.1rem; }
         .back-link {
             display: inline-flex;
@@ -393,6 +407,9 @@
                 <video id="video-{{ video.id }}" controls style="display:none;">
                     <source src="/video/{{ video.filename }}" type="{{ video.mime|default('video/mp4') }}">
                 </video>
+                <div class="video-actions">
+                    <button type="button" class="btn-loop" id="loop-{{ video.id }}" title="Toggle loop">🔁 Loop</button>
+                </div>
                 <h4>{{ video.title }}</h4>
                 <a href="/delete_video/{{ video.id }}"
                    class="delete-btn"
@@ -411,6 +428,20 @@ function playVideo(id){
     v.style.display="block";
     v.play();
 }
+
+(function setupLoopButtons(){
+    document.querySelectorAll(".btn-loop").forEach(function(btn){
+        var id = btn.id.replace("loop-","");
+        var video = document.getElementById("video-"+id);
+        if (!video) return;
+        btn.addEventListener("click", function(e){
+            e.preventDefault();
+            e.stopPropagation();
+            video.loop = !video.loop;
+            btn.classList.toggle("active", video.loop);
+        });
+    });
+})();
 
 function searchSongs(){
     var input = document.getElementById("searchInput").value.toLowerCase();
