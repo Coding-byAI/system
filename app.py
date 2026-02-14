@@ -1,10 +1,15 @@
-from flask import Flask, render_template, request, send_from_directory, redirect
+from flask import Flask, render_template, request, send_from_directory, redirect, flash
 import yt_dlp
 import os
 import json
 import uuid
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
 
 DOWNLOAD_FOLDER = "downloads"
 DATA_FILE = "videos.json"
@@ -32,12 +37,20 @@ else:
 # ------------------ SAVE FUNCTIONS ------------------
 
 def save_videos():
-    with open(DATA_FILE, "w") as f:
-        json.dump(videos, f, indent=4)
+    try:
+        with open(DATA_FILE, "w") as f:
+            json.dump(videos, f, indent=4)
+    except Exception as e:
+        logger.exception("Save videos error: %s", e)
+        raise
 
 def save_playlists():
-    with open(PLAYLIST_FILE, "w") as f:
-        json.dump(playlists, f, indent=4)
+    try:
+        with open(PLAYLIST_FILE, "w") as f:
+            json.dump(playlists, f, indent=4)
+    except Exception as e:
+        logger.exception("Save playlists error: %s", e)
+        raise
 
 # ------------------ DATA MIGRATION FIX ------------------
 # Add ID automatically if missing (for old videos)
@@ -58,34 +71,56 @@ def index():
     global videos
 
     if request.method == "POST":
-        url = request.form["url"]
+        url = (request.form.get("url") or "").strip()
+        if not url:
+            flash("Please enter a video URL.", "error")
+            return redirect("/")
 
+        # Use format that works without ffmpeg on most hosts (single file, no merge)
         ydl_opts = {
-            'format': 'bestvideo+bestaudio/best',
-            'outtmpl': f'{DOWNLOAD_FOLDER}/%(title)s.%(ext)s',
-            'merge_output_format': 'mp4',
+            "format": "best[ext=mp4]/best[ext=webm]/best",
+            "outtmpl": f"{DOWNLOAD_FOLDER}/%(title)s.%(ext)s",
+            "noplaylist": True,
+            "quiet": False,
         }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                if not info:
+                    flash("Could not get video info. Check the URL.", "error")
+                    return redirect("/")
+                filename = ydl.prepare_filename(info)
+                if not os.path.exists(filename):
+                    flash("Download failed: file was not created.", "error")
+                    return redirect("/")
+        except Exception as e:
+            err_msg = str(e)
+            logger.exception("Video convert error: %s", err_msg)
+            flash(f"Convert failed: {err_msg}", "error")
+            return redirect("/")
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
-            filename = os.path.splitext(filename)[0] + ".mp4"
-
+        ext = os.path.splitext(filename)[1].lower()
+        mime = "video/webm" if ext == ".webm" else "video/mp4"
         video_data = {
             "id": str(uuid.uuid4()),
-            "title": info['title'],
-            "thumbnail": info['thumbnail'],
-            "filename": os.path.basename(filename)
+            "title": info.get("title", "Unknown"),
+            "thumbnail": info.get("thumbnail") or "",
+            "filename": os.path.basename(filename),
+            "mime": mime,
         }
-
         videos.append(video_data)
         save_videos()
+        flash("Video added successfully.", "success")
 
     return render_template("index.html", videos=videos, playlists=playlists)
 
-@app.route("/video/<filename>")
+@app.route("/video/<path:filename>")
 def stream_video(filename):
-    return send_from_directory(DOWNLOAD_FOLDER, filename)
+    try:
+        return send_from_directory(DOWNLOAD_FOLDER, filename, as_attachment=False)
+    except Exception as e:
+        logger.exception("Stream video error: %s", e)
+        return f"Video not found: {filename}", 404
 
 @app.route("/manifest.json")
 def manifest():

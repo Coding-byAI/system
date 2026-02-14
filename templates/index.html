@@ -312,6 +312,11 @@
         .install-card p { margin: 0 0 20px 0; color: #aaa; font-size: 0.95rem; }
         .install-card .btn { margin: 0 6px; }
         .install-card .dismiss-btn { background: #333; color: #aaa; }
+
+        .flash-messages { padding: 0 16px 12px; max-width: 600px; margin: 0 auto; }
+        .flash { padding: 12px 16px; border-radius: 12px; margin-bottom: 8px; font-size: 0.95rem; }
+        .flash-error { background: rgba(211, 47, 47, 0.25); color: #ff8a80; }
+        .flash-success { background: rgba(46, 125, 50, 0.25); color: #81c784; }
     </style>
 </head>
 <body>
@@ -326,6 +331,16 @@
 </div>
 
 <h2>Media Streaming Lab</h2>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-messages">
+    {% for category, msg in messages %}
+    <div class="flash flash-{{ category }}">{{ msg }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
 
 <div class="container">
     <div class="sidebar">
@@ -376,7 +391,7 @@
                     <div id="play-{{ video.id }}" class="play-button">▶</div>
                 </div>
                 <video id="video-{{ video.id }}" controls style="display:none;">
-                    <source src="/video/{{ video.filename }}" type="video/mp4">
+                    <source src="/video/{{ video.filename }}" type="{{ video.mime|default('video/mp4') }}">
                 </video>
                 <h4>{{ video.title }}</h4>
                 <a href="/delete_video/{{ video.id }}"
