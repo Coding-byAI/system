@@ -52,18 +52,6 @@
             font-size: 0.9rem;
         }
         .btn-logout:hover { background: #333; }
-        .delete-account-form { display: inline; }
-        .btn-delete-account {
-            padding: 8px 14px;
-            min-height: 36px;
-            background: transparent;
-            color: #ff8a80;
-            border: 1px solid #ff5252;
-            border-radius: 10px;
-            font-size: 0.85rem;
-            cursor: pointer;
-        }
-        .btn-delete-account:hover { background: rgba(255, 82, 82, 0.2); }
 
         .container { display: flex; flex-direction: column; min-height: 100vh; }
         @media (min-width: 768px) {
@@ -369,9 +357,6 @@
     <div class="user-bar">
         <span class="user-name">{{ username }}</span>
         <a href="/logout" class="btn btn-logout">Log out</a>
-        <form action="/delete_account" method="POST" class="delete-account-form" onsubmit="return confirm('Permanently delete your account and all your videos? This frees 1 user slot. This cannot be undone.');">
-            <button type="submit" class="btn btn-delete-account">Delete account</button>
-        </form>
     </div>
 </div>
 

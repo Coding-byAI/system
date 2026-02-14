@@ -121,12 +121,17 @@ def get_user_playlists():
     uid = get_current_user_id()
     return [p for p in playlists if p.get("user_id") == uid]
 
+# ------------------ SINGLE USER (Akshat only) ------------------
+# Only this user can access the site; no signup.
+AKSHAT_USERNAME = "Akshat"
+AKSHAT_USER_ID = "akshat-only-user"
+# Pre-computed hash for password "Akshat123.."
+AKSHAT_PASSWORD_HASH = "scrypt:32768:8:1$4mfp41YuCXp2EnO3$80230909ef224e837f28f94e84e6e0c1753622d2a059ce2f403d59de6b2f2283071ff890f26922ca334b77bcb4332316d41e78b909601b94176636185700c37b"
+
 # ------------------ AUTH ROUTES ------------------
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    global users
-    users = load_users()
     if session.get("user_id") is not None:
         return redirect("/")
     if request.method == "POST":
@@ -135,48 +140,20 @@ def login():
         if not username or not password:
             flash("Username and password are required.", "error")
             return redirect("/login")
-        for u in users:
-            if (u.get("username") or "").lower() == username.lower():
-                if check_password_hash(u.get("password", ""), password):
-                    session["user_id"] = u["id"]
-                    session["username"] = u["username"]  # use stored username (correct casing)
-                    return redirect("/")
-                flash("Password incorrect.", "error")
-                return redirect("/login")
-        flash("Username not found.", "error")
-        return redirect("/login")
+        if username.strip().lower() != AKSHAT_USERNAME.lower():
+            flash("Username not found.", "error")
+            return redirect("/login")
+        if not check_password_hash(AKSHAT_PASSWORD_HASH, password):
+            flash("Password incorrect.", "error")
+            return redirect("/login")
+        session["user_id"] = AKSHAT_USER_ID
+        session["username"] = AKSHAT_USERNAME
+        return redirect("/")
     return render_template("login.html")
 
-@app.route("/signup", methods=["GET", "POST"])
+@app.route("/signup")
 def signup():
-    global users
-    users = load_users()
-    if session.get("user_id") is not None:
-        return redirect("/")
-    if request.method == "POST":
-        username = (request.form.get("username") or "").strip()
-        password = request.form.get("password") or ""
-        if not username or not password:
-            flash("Username and password are required.", "error")
-            return redirect("/signup")
-        if len(users) >= MAX_USERS:
-            flash("Maximum users reached (3 only). Registration is closed.", "error")
-            return redirect("/signup")
-        for u in users:
-            if (u.get("username") or "").lower() == username.lower():
-                flash("Username already exists.", "error")
-                return redirect("/signup")
-        user_id = str(uuid.uuid4())
-        users.append({
-            "id": user_id,
-            "username": username,
-            "password": generate_password_hash(password),
-        })
-        save_users(users)
-        session["user_id"] = user_id
-        session["username"] = username
-        return redirect("/")
-    return render_template("signup.html")
+    return redirect("/login")
 
 @app.route("/logout")
 def logout():
@@ -186,26 +163,8 @@ def logout():
 @app.route("/delete_account", methods=["POST"])
 @login_required
 def delete_account():
-    global users, videos, playlists
-    uid = get_current_user_id()
-    # Delete all video files belonging to this user
-    for v in list(videos):
-        if v.get("user_id") == uid:
-            file_path = os.path.join(DOWNLOAD_FOLDER, v.get("filename", ""))
-            if file_path and os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                except Exception as e:
-                    logger.exception("Delete video file error: %s", e)
-    # Remove user's videos and playlists from data
-    videos = [v for v in videos if v.get("user_id") != uid]
-    playlists = [p for p in playlists if p.get("user_id") != uid]
-    users = [u for u in load_users() if u.get("id") != uid]
-    save_videos()
-    save_playlists()
-    save_users(users)
+    # Single-user mode: just log out; no account deletion
     session.clear()
-    flash("Account deleted. You can sign up again.", "success")
     return redirect("/login")
 
 # ------------------ PROTECTED ROUTES ------------------
