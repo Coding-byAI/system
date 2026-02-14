@@ -166,6 +166,31 @@ def logout():
     session.clear()
     return redirect("/login")
 
+@app.route("/delete_account", methods=["POST"])
+@login_required
+def delete_account():
+    global users, videos, playlists
+    uid = get_current_user_id()
+    # Delete all video files belonging to this user
+    for v in list(videos):
+        if v.get("user_id") == uid:
+            file_path = os.path.join(DOWNLOAD_FOLDER, v.get("filename", ""))
+            if file_path and os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    logger.exception("Delete video file error: %s", e)
+    # Remove user's videos and playlists from data
+    videos = [v for v in videos if v.get("user_id") != uid]
+    playlists = [p for p in playlists if p.get("user_id") != uid]
+    users = [u for u in load_users() if u.get("id") != uid]
+    save_videos()
+    save_playlists()
+    save_users(users)
+    session.clear()
+    flash("Account deleted. You can sign up again.", "success")
+    return redirect("/login")
+
 # ------------------ PROTECTED ROUTES ------------------
 
 @app.route("/", methods=["GET", "POST"])
