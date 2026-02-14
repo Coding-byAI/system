@@ -284,6 +284,34 @@
         .btn-loop:hover { background: #333; color: #fff; }
         .btn-loop.active { background: rgba(0,229,255,0.25); color: #00e5ff; }
 
+        .add-to-playlist-form {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-left: 8px;
+            flex-wrap: wrap;
+        }
+        .playlist-select {
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: none;
+            background: #2a2a2a;
+            color: #fff;
+            font-size: 0.85rem;
+            min-width: 120px;
+        }
+        .btn-add-to-playlist {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: none;
+            background: #2a2a2a;
+            color: #fff;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .btn-add-to-playlist:hover:not(:disabled) { background: #333; }
+        .btn-add-to-playlist:disabled { opacity: 0.5; cursor: not-allowed; }
+
         .active-title { margin-bottom: 12px; color: #00e5ff; font-size: 1.1rem; }
         .back-link {
             display: inline-flex;
@@ -399,16 +427,27 @@
 
         <div class="grid">
             {% for video in videos %}
-            <div class="card" data-title="{{ video.title|lower }}" data-id="{{ video.id }}">
+            <div class="card" data-title="{{ video.title|lower }}" data-id="{{ video.id }}" data-thumbnail="{{ video.thumbnail }}">
                 <div class="video-container" onclick="playVideo('{{ video.id }}')">
                     <img id="thumb-{{ video.id }}" src="{{ video.thumbnail }}">
                     <div id="play-{{ video.id }}" class="play-button">▶</div>
                 </div>
-                <video id="video-{{ video.id }}" controls style="display:none;">
+                <video id="video-{{ video.id }}" controls playsinline style="display:none;" data-title="{{ video.title }}">
                     <source src="/video/{{ video.filename }}" type="{{ video.mime|default('video/mp4') }}">
                 </video>
                 <div class="video-actions">
                     <button type="button" class="btn-loop" id="loop-{{ video.id }}" title="Toggle loop">🔁 Loop</button>
+                    <form method="POST" action="/add_to_playlist" class="add-to-playlist-form">
+                        <input type="hidden" name="video_id" value="{{ video.id }}">
+                        <select name="playlist_id" class="playlist-select" title="Add to playlist" required>
+                            <option value="">+ Add to playlist</option>
+                            {% for p in playlists %}
+                            <option value="{{ p.id }}">{{ p.name }}</option>
+                            {% endfor %}
+                            {% if not playlists %}<option value="" disabled>Create a playlist first</option>{% endif %}
+                        </select>
+                        <button type="submit" class="btn-add-to-playlist" {% if not playlists %}disabled{% endif %}>Add</button>
+                    </form>
                 </div>
                 <h4>{{ video.title }}</h4>
                 <a href="/delete_video/{{ video.id }}"
@@ -421,13 +460,83 @@
 </div>
 
 <script>
+var currentMedia = { video: null, audio: null, id: null, loop: false };
+
 function playVideo(id){
-    document.getElementById("thumb-"+id).style.display="none";
-    document.getElementById("play-"+id).style.display="none";
-    var v=document.getElementById("video-"+id);
-    v.style.display="block";
+    var v = document.getElementById("video-"+id);
+    if (!v) return;
+    if (currentMedia.video && currentMedia.video !== v) {
+        currentMedia.video.pause();
+        currentMedia.video.style.display = "none";
+        var prevId = currentMedia.id;
+        if (prevId) {
+            document.getElementById("thumb-"+prevId).style.display = "";
+            document.getElementById("play-"+prevId).style.display = "";
+        }
+    }
+    if (currentMedia.audio) {
+        currentMedia.audio.pause();
+        currentMedia.audio.src = "";
+        currentMedia.audio = null;
+    }
+    document.getElementById("thumb-"+id).style.display = "none";
+    document.getElementById("play-"+id).style.display = "none";
+    v.style.display = "block";
+    currentMedia.video = v;
+    currentMedia.id = id;
+    currentMedia.loop = v.loop;
     v.play();
+
+    var card = v.closest(".card");
+    var titleEl = card ? card.querySelector("h4") : null;
+    var title = (v.getAttribute("data-title") || (titleEl && titleEl.innerText)) || "Media Streaming Lab";
+    var thumb = card ? card.getAttribute("data-thumbnail") : "";
+
+    if (navigator.mediaSession) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: title,
+            artist: "Media Streaming Lab",
+            artwork: thumb ? [{ src: thumb, sizes: "512x512", type: "image/jpeg" }] : []
+        });
+        navigator.mediaSession.playbackState = "playing";
+        navigator.mediaSession.setActionHandler("play", function(){ (currentMedia.audio || currentMedia.video).play(); if (navigator.mediaSession) navigator.mediaSession.playbackState = "playing"; });
+        navigator.mediaSession.setActionHandler("pause", function(){ (currentMedia.audio || currentMedia.video).pause(); if (navigator.mediaSession) navigator.mediaSession.playbackState = "paused"; });
+    }
+
+    v.onended = function(){ if (!v.loop && currentMedia.audio) { currentMedia.audio.pause(); currentMedia.audio = null; } };
 }
+
+document.addEventListener("visibilitychange", function(){
+    if (document.hidden) {
+        if (currentMedia.video && !currentMedia.video.paused && currentMedia.video.currentSrc) {
+            var src = currentMedia.video.currentSrc;
+            var t = currentMedia.video.currentTime;
+            var loop = currentMedia.video.loop;
+            currentMedia.video.pause();
+            var audio = document.createElement("audio");
+            audio.src = src;
+            audio.currentTime = t;
+            audio.loop = loop;
+            audio.play().catch(function(){});
+            currentMedia.audio = audio;
+            if (navigator.mediaSession) navigator.mediaSession.playbackState = "playing";
+        }
+    } else {
+        if (currentMedia.audio && !currentMedia.audio.paused) {
+            var t = currentMedia.audio.currentTime;
+            var loop = currentMedia.audio.loop;
+            currentMedia.audio.pause();
+            currentMedia.audio.src = "";
+            currentMedia.audio = null;
+            if (currentMedia.video) {
+                currentMedia.video.currentTime = t;
+                currentMedia.video.loop = loop;
+                currentMedia.video.play();
+            }
+            if (navigator.mediaSession) navigator.mediaSession.playbackState = "playing";
+        }
+    }
+});
 
 (function setupLoopButtons(){
     document.querySelectorAll(".btn-loop").forEach(function(btn){
@@ -439,6 +548,7 @@ function playVideo(id){
             e.stopPropagation();
             video.loop = !video.loop;
             btn.classList.toggle("active", video.loop);
+            if (currentMedia.audio && currentMedia.video === video) currentMedia.audio.loop = video.loop;
         });
     });
 })();
