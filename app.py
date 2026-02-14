@@ -87,6 +87,14 @@ def index():
 def stream_video(filename):
     return send_from_directory(DOWNLOAD_FOLDER, filename)
 
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory("static", "manifest.json")
+
+@app.route("/sw.js")
+def service_worker():
+    return send_from_directory("static", "sw.js"), 200, {"Content-Type": "application/javascript"}
+
 @app.route("/create_playlist", methods=["POST"])
 def create_playlist():
     name = request.form["name"]

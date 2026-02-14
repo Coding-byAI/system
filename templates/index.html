@@ -1,155 +1,338 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0f0f0f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Media Streaming Lab</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
     <style>
-        body { background:#0f0f0f; color:white; font-family:Arial; margin:0; }
-        h2 { text-align:center; padding:15px; }
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            background: #0f0f0f;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding-bottom: env(safe-area-inset-bottom);
+            -webkit-tap-highlight-color: transparent;
+        }
+        h2 {
+            text-align: center;
+            padding: 12px 16px;
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
 
-        .container { display:flex; }
+        .container { display: flex; flex-direction: column; min-height: 100vh; }
+        @media (min-width: 768px) {
+            .container { flex-direction: row; }
+        }
 
         .sidebar {
-            width:250px;
-            background:#1c1c1c;
-            padding:15px;
+            width: 100%;
+            background: #1c1c1c;
+            padding: 16px;
+            order: 2;
         }
-
-        .sidebar h3 { margin-top:0; }
-
+        @media (min-width: 768px) {
+            .sidebar {
+                width: 260px;
+                min-width: 260px;
+                order: 1;
+                padding: 20px;
+            }
+        }
+        .sidebar h3 { margin: 0 0 10px 0; font-size: 1rem; font-weight: 600; }
         .sidebar form input {
-            width:100%;
-            padding:5px;
-            margin-bottom:5px;
+            width: 100%;
+            padding: 12px 14px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 12px;
+            background: #2a2a2a;
+            color: #fff;
+            font-size: 1rem;
         }
+        .sidebar form input::placeholder { color: #888; }
 
-        .sidebar button {
-            width:100%;
-            padding:6px;
-            background:red;
-            color:white;
-            border:none;
-            cursor:pointer;
-            margin-bottom:10px;
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary {
+            width: 100%;
+            background: linear-gradient(180deg, #e53935 0%, #c62828 100%);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(229, 57, 53, 0.4);
+        }
+        .btn-primary:hover { box-shadow: 0 6px 20px rgba(229, 57, 53, 0.5); }
+        .btn-secondary {
+            background: #2a2a2a;
+            color: #fff;
+        }
+        .btn-secondary:hover { background: #333; }
+        .btn-accent {
+            background: linear-gradient(180deg, #00bcd4 0%, #0097a7 100%);
+            color: #fff;
+        }
+        .btn-danger {
+            background: linear-gradient(180deg, #ff5252 0%, #d32f2f 100%);
+            color: #fff;
+            padding: 8px 14px;
+            min-height: 36px;
+            font-size: 0.9rem;
+        }
+        .btn-icon {
+            width: 44px;
+            min-width: 44px;
+            height: 44px;
+            padding: 0;
+            border-radius: 50%;
         }
 
         .playlist-item {
-            background:#2a2a2a;
-            padding:6px;
-            margin-bottom:6px;
-            border-radius:5px;
+            background: #2a2a2a;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
         }
-
         .playlist-item a {
-            text-decoration:none;
-            color:white;
+            text-decoration: none;
+            color: #fff;
+            flex: 1;
+            min-width: 0;
         }
-
-        .playlist-item a:hover {
-            color:#00ffff;
+        .playlist-item a:hover { color: #00e5ff; }
+        .playlist-item .delete-playlist-btn {
+            flex-shrink: 0;
+            color: #ff5252;
+            text-decoration: none;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
         }
+        .playlist-item .delete-playlist-btn:hover { background: rgba(255,82,82,0.2); }
 
         .main {
-            flex:1;
-            padding:20px;
+            flex: 1;
+            padding: 16px;
+            min-width: 0;
+        }
+        @media (min-width: 768px) {
+            .main { padding: 24px; }
         }
 
         .search-box {
-            width:100%;
-            padding:8px;
-            margin-bottom:10px;
-            border-radius:5px;
-            border:none;
+            width: 100%;
+            padding: 14px 18px;
+            margin-bottom: 12px;
+            border-radius: 14px;
+            border: none;
+            background: #1c1c1c;
+            color: #fff;
+            font-size: 1rem;
         }
+        .search-box::placeholder { color: #888; }
 
         .suggestions {
-            background:#1c1c1c;
-            border-radius:5px;
-            margin-bottom:15px;
-            max-height:150px;
-            overflow-y:auto;
+            background: #1c1c1c;
+            border-radius: 14px;
+            margin-bottom: 16px;
+            max-height: 200px;
+            overflow-y: auto;
         }
-
         .suggestions div {
-            padding:6px;
-            cursor:pointer;
-            border-bottom:1px solid #333;
+            padding: 14px 18px;
+            cursor: pointer;
+            border-bottom: 1px solid #2a2a2a;
         }
+        .suggestions div:last-child { border-bottom: none; }
+        .suggestions div:hover, .suggestions div:active { background: #2a2a2a; }
 
-        .suggestions div:hover {
-            background:#333;
+        .add-video-form { margin-bottom: 20px; }
+        .add-video-form input {
+            width: 100%;
+            padding: 14px 18px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 14px;
+            background: #1c1c1c;
+            color: #fff;
+            font-size: 1rem;
         }
+        .add-video-form .btn { width: 100%; }
 
         .grid {
-            display:grid;
-            grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
-            gap:20px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+        @media (min-width: 480px) {
+            .grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (min-width: 768px) {
+            .grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
         }
 
         .card {
-            background:#1c1c1c;
-            padding:10px;
-            border-radius:10px;
+            background: #1c1c1c;
+            padding: 12px;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        @media (min-width: 768px) {
+            .card { padding: 14px; }
         }
 
         .video-container {
-            position:relative;
-            cursor:pointer;
+            position: relative;
+            cursor: pointer;
+            border-radius: 12px;
+            overflow: hidden;
         }
-
         .video-container img {
-            width:100%;
-            border-radius:10px;
+            width: 100%;
+            aspect-ratio: 16/9;
+            object-fit: cover;
+            border-radius: 12px;
         }
-
         .play-button {
-            position:absolute;
-            top:50%;
-            left:50%;
-            transform:translate(-50%,-50%);
-            font-size:40px;
-            background:rgba(0,0,0,0.6);
-            padding:10px 15px;
-            border-radius:50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            background: rgba(0,0,0,0.65);
+            border-radius: 50%;
+            color: #fff;
+        }
+        @media (min-width: 768px) {
+            .play-button { width: 64px; height: 64px; font-size: 28px; }
         }
 
-        video { width:100%; border-radius:10px; margin-top:10px; }
+        video {
+            width: 100%;
+            border-radius: 12px;
+            margin-top: 8px;
+        }
+        .card h4 {
+            margin: 10px 0 8px 0;
+            font-size: 0.95rem;
+            font-weight: 600;
+            line-height: 1.3;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
 
         .delete-btn {
-            display:inline-block;
-            margin-top:5px;
-            color:#ff4d4d;
-            text-decoration:none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 6px;
+            padding: 10px 16px;
+            color: #ff5252;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            min-height: 44px;
         }
+        .delete-btn:hover { background: rgba(255,82,82,0.15); }
 
-        .delete-btn:hover {
-            color:#ff0000;
-        }
-
-        .active-title {
-            margin-bottom:10px;
-            color:#00ffff;
-        }
-
+        .active-title { margin-bottom: 12px; color: #00e5ff; font-size: 1.1rem; }
         .back-link {
-            display:inline-block;
-            margin-bottom:15px;
-            color:#00ffff;
-            text-decoration:none;
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 10px 16px;
+            color: #00e5ff;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: 500;
         }
+        .back-link:hover { background: rgba(0,229,255,0.15); }
+
+        /* Install app popup – only in browser */
+        #installBanner {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #installBanner.show {
+            display: flex;
+        }
+        .install-card {
+            background: #1c1c1c;
+            border-radius: 20px;
+            padding: 24px;
+            max-width: 360px;
+            width: 100%;
+            text-align: center;
+        }
+        .install-card h3 { margin: 0 0 10px 0; font-size: 1.25rem; }
+        .install-card p { margin: 0 0 20px 0; color: #aaa; font-size: 0.95rem; }
+        .install-card .btn { margin: 0 6px; }
+        .install-card .dismiss-btn { background: #333; color: #aaa; }
     </style>
 </head>
 <body>
 
+<div id="installBanner" aria-hidden="true">
+    <div class="install-card">
+        <h3>Install Media Streaming Lab</h3>
+        <p>Add to your home screen for a full app experience and quick access.</p>
+        <button type="button" class="btn btn-primary" id="installBtn">Install App</button>
+        <button type="button" class="btn dismiss-btn" id="installDismiss">Not now</button>
+    </div>
+</div>
+
 <h2>Media Streaming Lab</h2>
 
 <div class="container">
-
-    <!-- SIDEBAR -->
     <div class="sidebar">
         <h3>Create Playlist</h3>
         <form method="POST" action="/create_playlist">
             <input type="text" name="name" placeholder="Playlist name" required>
-            <button type="submit">Create</button>
+            <button type="submit" class="btn btn-primary">Create</button>
         </form>
 
         <h3>Playlists</h3>
@@ -159,21 +342,18 @@
                 {{ p.name }} ({{ p.songs|length }})
             </a>
             <a href="/delete_playlist/{{ p.id }}"
-               onclick="return confirm('Delete this playlist?')"
-               style="color:red; float:right;">❌</a>
+               class="delete-playlist-btn"
+               onclick="return confirm('Delete this playlist?')">Delete</a>
         </div>
         {% endfor %}
     </div>
 
-    <!-- MAIN -->
     <div class="main">
-
         {% if active_playlist %}
             <h3 class="active-title">Playlist: {{ active_playlist.name }}</h3>
-            <a href="/" class="back-link">⬅ Back to All Videos</a>
+            <a href="/" class="back-link">← Back to All Videos</a>
         {% endif %}
 
-        <!-- 🔥 SEARCH BAR -->
         <input type="text" id="searchInput"
                class="search-box"
                placeholder="Search songs..."
@@ -182,84 +362,109 @@
         <div id="suggestions" class="suggestions"></div>
 
         {% if not active_playlist %}
-        <form method="POST">
+        <form method="POST" class="add-video-form">
             <input type="text" name="url" placeholder="Paste Video Link" required>
-            <button type="submit">Convert</button>
+            <button type="submit" class="btn btn-primary">Convert</button>
         </form>
         {% endif %}
 
         <div class="grid">
             {% for video in videos %}
             <div class="card" data-title="{{ video.title|lower }}" data-id="{{ video.id }}">
-
                 <div class="video-container" onclick="playVideo('{{ video.id }}')">
                     <img id="thumb-{{ video.id }}" src="{{ video.thumbnail }}">
                     <div id="play-{{ video.id }}" class="play-button">▶</div>
                 </div>
-
                 <video id="video-{{ video.id }}" controls style="display:none;">
                     <source src="/video/{{ video.filename }}" type="video/mp4">
                 </video>
-
                 <h4>{{ video.title }}</h4>
-
                 <a href="/delete_video/{{ video.id }}"
                    class="delete-btn"
-                   onclick="return confirm('Delete this video?')">
-                   🗑 Delete
-                </a>
-
+                   onclick="return confirm('Delete this video?')">Delete</a>
             </div>
             {% endfor %}
         </div>
-
     </div>
-
 </div>
 
 <script>
 function playVideo(id){
     document.getElementById("thumb-"+id).style.display="none";
     document.getElementById("play-"+id).style.display="none";
-    let v=document.getElementById("video-"+id);
+    var v=document.getElementById("video-"+id);
     v.style.display="block";
     v.play();
 }
 
 function searchSongs(){
-    let input = document.getElementById("searchInput").value.toLowerCase();
-    let cards = document.querySelectorAll(".card");
-    let suggestionsBox = document.getElementById("suggestions");
-
+    var input = document.getElementById("searchInput").value.toLowerCase();
+    var cards = document.querySelectorAll(".card");
+    var suggestionsBox = document.getElementById("suggestions");
     suggestionsBox.innerHTML = "";
-
     if(input === ""){
-        cards.forEach(card => card.style.display = "block");
+        cards.forEach(function(card){ card.style.display = "block"; });
         return;
     }
-
-    cards.forEach(card => {
-        let title = card.getAttribute("data-title");
-
+    cards.forEach(function(card){
+        var title = card.getAttribute("data-title");
         if(title.startsWith(input)){
             card.style.display = "block";
-
-            let suggestion = document.createElement("div");
+            var suggestion = document.createElement("div");
             suggestion.innerText = card.querySelector("h4").innerText;
-
             suggestion.onclick = function(){
-                let id = card.getAttribute("data-id");
+                var id = card.getAttribute("data-id");
                 card.scrollIntoView({behavior:"smooth"});
                 playVideo(id);
                 suggestionsBox.innerHTML = "";
             };
-
             suggestionsBox.appendChild(suggestion);
         } else {
             card.style.display = "none";
         }
     });
 }
+
+(function(){
+    var installBanner = document.getElementById("installBanner");
+    var installBtn = document.getElementById("installBtn");
+    var installDismiss = document.getElementById("installDismiss");
+    var deferredPrompt = null;
+
+    function isStandalone() {
+        return window.matchMedia("(display-mode: standalone)").matches
+            || window.navigator.standalone === true
+            || document.referrer.indexOf("android-app://") === 0;
+    }
+
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(function(){});
+    }
+
+    window.addEventListener("beforeinstallprompt", function(e){
+        e.preventDefault();
+        deferredPrompt = e;
+        if (!isStandalone() && installBanner && !sessionStorage.getItem("installBannerDismissed")) {
+            installBanner.classList.add("show");
+            installBanner.setAttribute("aria-hidden", "false");
+        }
+    });
+
+    if (installBtn) installBtn.addEventListener("click", function(){
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function(choice){
+            if (choice.outcome === "accepted") installBanner.classList.remove("show");
+            deferredPrompt = null;
+        });
+    });
+
+    if (installDismiss) installDismiss.addEventListener("click", function(){
+        installBanner.classList.remove("show");
+        installBanner.setAttribute("aria-hidden", "true");
+        try { sessionStorage.setItem("installBannerDismissed", "1"); } catch(e){}
+    });
+})();
 </script>
 
 </body>
