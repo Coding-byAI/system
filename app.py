@@ -12,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
+# Session ends when browser/app is closed (session cookie, no long-lived expiry)
+app.config["SESSION_PERMANENT"] = False
+app.config["PERMANENT_SESSION_LIFETIME"] = 0
 
 DOWNLOAD_FOLDER = "downloads"
 DATA_FILE = "videos.json"
