@@ -1,6 +1,4 @@
-from flask import Flask, render_template, request, send_from_directory, redirect, flash, session
-from functools import wraps
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, render_template, request, send_from_directory, redirect, flash
 from werkzeug.middleware.proxy_fix import ProxyFix
 import yt_dlp
 import os
@@ -99,78 +97,32 @@ for v in videos:
 if updated:
     save_videos()
 
-# ------------------ AUTH HELPERS ------------------
-
-def login_required(f):
-    @wraps(f)
-    def wrapped(*args, **kwargs):
-        if session.get("user_id") is None:
-            flash("Please log in to continue.", "error")
-            return redirect("/login")
-        return f(*args, **kwargs)
-    return wrapped
+# Single user id for all content (no login – site opens directly)
+AKSHAT_USER_ID = "akshat-only-user"
 
 def get_current_user_id():
-    return session.get("user_id")
+    return AKSHAT_USER_ID
 
 def get_user_videos():
     uid = get_current_user_id()
-    return [v for v in videos if v.get("user_id") == uid]
+    return [v for v in videos if v.get("user_id") == uid or v.get("user_id") is None]
 
 def get_user_playlists():
     uid = get_current_user_id()
-    return [p for p in playlists if p.get("user_id") == uid]
+    return [p for p in playlists if p.get("user_id") == uid or p.get("user_id") is None]
 
-# ------------------ SINGLE USER (Akshat only) ------------------
-# Only this user can access the site; no signup.
-AKSHAT_USERNAME = "Akshat"
-AKSHAT_USER_ID = "akshat-only-user"
-# Pre-computed hash for password "Akshat123.."
-AKSHAT_PASSWORD_HASH = "scrypt:32768:8:1$4mfp41YuCXp2EnO3$80230909ef224e837f28f94e84e6e0c1753622d2a059ce2f403d59de6b2f2283071ff890f26922ca334b77bcb4332316d41e78b909601b94176636185700c37b"
-
-# ------------------ AUTH ROUTES ------------------
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if session.get("user_id") is not None:
-        return redirect("/")
-    if request.method == "POST":
-        username = (request.form.get("username") or "").strip()
-        password = request.form.get("password") or ""
-        if not username or not password:
-            flash("Username and password are required.", "error")
-            return redirect("/login")
-        if username.strip().lower() != AKSHAT_USERNAME.lower():
-            flash("Username not found.", "error")
-            return redirect("/login")
-        if not check_password_hash(AKSHAT_PASSWORD_HASH, password):
-            flash("Password incorrect.", "error")
-            return redirect("/login")
-        session["user_id"] = AKSHAT_USER_ID
-        session["username"] = AKSHAT_USERNAME
-        return redirect("/")
-    return render_template("login.html")
-
+@app.route("/login")
 @app.route("/signup")
-def signup():
-    return redirect("/login")
+def login_redirect():
+    return redirect("/")
 
 @app.route("/logout")
 def logout():
-    session.clear()
-    return redirect("/login")
+    return redirect("/")
 
-@app.route("/delete_account", methods=["POST"])
-@login_required
-def delete_account():
-    # Single-user mode: just log out; no account deletion
-    session.clear()
-    return redirect("/login")
-
-# ------------------ PROTECTED ROUTES ------------------
+# ------------------ ROUTES ------------------
 
 @app.route("/", methods=["GET", "POST"])
-@login_required
 def index():
     global videos
 
@@ -221,15 +173,13 @@ def index():
         "index.html",
         videos=get_user_videos(),
         playlists=get_user_playlists(),
-        username=session.get("username"),
     )
 
 @app.route("/video/<path:filename>")
-@login_required
 def stream_video(filename):
     uid = get_current_user_id()
     for v in videos:
-        if v.get("user_id") == uid and v.get("filename") == filename:
+        if (v.get("user_id") == uid or v.get("user_id") is None) and v.get("filename") == filename:
             try:
                 return send_from_directory(DOWNLOAD_FOLDER, filename, as_attachment=False)
             except Exception as e:
@@ -254,7 +204,6 @@ def app_icon():
     return send_from_directory(app.root_path, "icon 1.png", mimetype="image/png")
 
 @app.route("/create_playlist", methods=["POST"])
-@login_required
 def create_playlist():
     name = request.form.get("name", "").strip()
     if not name:
@@ -269,13 +218,12 @@ def create_playlist():
     return redirect("/")
 
 @app.route("/add_to_playlist", methods=["POST"])
-@login_required
 def add_to_playlist():
     playlist_id = request.form.get("playlist_id")
     video_id = request.form.get("video_id")
     uid = get_current_user_id()
     for p in playlists:
-        if p.get("user_id") == uid and p["id"] == playlist_id:
+        if (p.get("user_id") == uid or p.get("user_id") is None) and p["id"] == playlist_id:
             if video_id not in p["songs"]:
                 p["songs"].append(video_id)
             break
@@ -283,35 +231,32 @@ def add_to_playlist():
     return redirect("/")
 
 @app.route("/delete_playlist/<playlist_id>")
-@login_required
 def delete_playlist(playlist_id):
     global playlists
     uid = get_current_user_id()
-    playlists = [p for p in playlists if not (p.get("user_id") == uid and p["id"] == playlist_id)]
+    playlists = [p for p in playlists if not ((p.get("user_id") == uid or p.get("user_id") is None) and p["id"] == playlist_id)]
     save_playlists()
     return redirect("/")
 
 @app.route("/rename_playlist/<playlist_id>", methods=["POST"])
-@login_required
 def rename_playlist(playlist_id):
     new_name = (request.form.get("new_name") or "").strip()
     uid = get_current_user_id()
     for p in playlists:
-        if p.get("user_id") == uid and p["id"] == playlist_id:
+        if (p.get("user_id") == uid or p.get("user_id") is None) and p["id"] == playlist_id:
             p["name"] = new_name
             break
     save_playlists()
     return redirect("/")
 
 @app.route("/delete_video/<video_id>")
-@login_required
 def delete_video(video_id):
     global videos, playlists
     uid = get_current_user_id()
 
     video_to_delete = None
     for v in videos:
-        if v.get("id") == video_id and v.get("user_id") == uid:
+        if v.get("id") == video_id and (v.get("user_id") == uid or v.get("user_id") is None):
             video_to_delete = v
             break
 
@@ -329,23 +274,21 @@ def delete_video(video_id):
     return redirect("/")
 
 @app.route("/playlist/<playlist_id>")
-@login_required
 def view_playlist(playlist_id):
     uid = get_current_user_id()
     selected_playlist = None
     for p in playlists:
-        if p.get("user_id") == uid and p["id"] == playlist_id:
+        if (p.get("user_id") == uid or p.get("user_id") is None) and p["id"] == playlist_id:
             selected_playlist = p
             break
     if not selected_playlist:
         return redirect("/")
-    playlist_videos = [v for v in videos if v.get("user_id") == uid and v.get("id") in selected_playlist.get("songs", [])]
+    playlist_videos = [v for v in videos if (v.get("user_id") == uid or v.get("user_id") is None) and v.get("id") in selected_playlist.get("songs", [])]
     return render_template(
         "index.html",
         videos=playlist_videos,
         playlists=get_user_playlists(),
         active_playlist=selected_playlist,
-        username=session.get("username"),
     )
 
 # ------------------ RUN APP ------------------
