@@ -269,6 +269,14 @@ def manifest():
 def service_worker():
     return send_from_directory("static", "sw.js"), 200, {"Content-Type": "application/javascript"}
 
+@app.route("/icon.png")
+def app_icon():
+    """Serve icon 1.png from system folder for PWA and apple-touch-icon."""
+    path = os.path.join(app.root_path, "icon 1.png")
+    if not os.path.isfile(path):
+        return "Icon not found", 404
+    return send_from_directory(app.root_path, "icon 1.png", mimetype="image/png")
+
 @app.route("/create_playlist", methods=["POST"])
 @login_required
 def create_playlist():
