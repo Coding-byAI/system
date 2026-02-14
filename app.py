@@ -15,11 +15,16 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-in-production")
 # Session ends when browser/app is closed (session cookie, no long-lived expiry)
 app.config["SESSION_PERMANENT"] = False
 app.config["PERMANENT_SESSION_LIFETIME"] = 0
+# Ensure session cookie is sent with same-site form POST (e.g. Convert button)
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_PATH"] = "/"
 
-DOWNLOAD_FOLDER = "downloads"
-DATA_FILE = "videos.json"
-PLAYLIST_FILE = "playlists.json"
-USERS_FILE = "users.json"
+# Paths relative to app folder so they work no matter where the app is run from
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DOWNLOAD_FOLDER = os.path.join(BASE_DIR, "downloads")
+DATA_FILE = os.path.join(BASE_DIR, "videos.json")
+PLAYLIST_FILE = os.path.join(BASE_DIR, "playlists.json")
+USERS_FILE = os.path.join(BASE_DIR, "users.json")
 MAX_USERS = 3
 
 if not os.path.exists(DOWNLOAD_FOLDER):
@@ -122,10 +127,10 @@ def login():
             flash("Username and password are required.", "error")
             return redirect("/login")
         for u in users:
-            if u.get("username") == username:
+            if (u.get("username") or "").lower() == username.lower():
                 if check_password_hash(u.get("password", ""), password):
                     session["user_id"] = u["id"]
-                    session["username"] = username
+                    session["username"] = u["username"]  # use stored username (correct casing)
                     return redirect("/")
                 flash("Password incorrect.", "error")
                 return redirect("/login")
